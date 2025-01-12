@@ -3,37 +3,23 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     /**
      * Register a new user.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  RegisterRequest  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -46,7 +32,7 @@ class AuthController extends Controller
             'status' => true,
             'message' => 'User registered successfully',
             'data' => [
-                'user' => $user,
+                'user' => new UserResource($user),
                 'token' => $token
             ]
         ], 201);
@@ -55,24 +41,11 @@ class AuthController extends Controller
     /**
      * Login user and create token.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  LoginRequest  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
         if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
                 'status' => false,
@@ -87,7 +60,7 @@ class AuthController extends Controller
             'status' => true,
             'message' => 'User logged in successfully',
             'data' => [
-                'user' => $user,
+                'user' => new UserResource($user),
                 'token' => $token
             ]
         ]);
@@ -96,33 +69,30 @@ class AuthController extends Controller
     /**
      * Get authenticated user profile.
      *
-     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function profile(Request $request)
+    public function profile()
     {
         return response()->json([
             'status' => true,
-            'message' => 'User profile retrieved successfully',
             'data' => [
-                'user' => $request->user()
+                'user' => new UserResource(auth()->user())
             ]
         ]);
     }
 
     /**
-     * Logout user (Revoke the token).
+     * Logout user (Revoke the token)
      *
-     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function logout(Request $request)
+    public function logout()
     {
-        $request->user()->currentAccessToken()->delete();
+        auth()->user()->tokens()->delete();
 
         return response()->json([
             'status' => true,
-            'message' => 'User logged out successfully'
+            'message' => 'Successfully logged out'
         ]);
     }
 }
